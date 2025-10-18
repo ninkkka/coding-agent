@@ -3,14 +3,16 @@ import os
 import threading
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
-load_dotenv() 
 
-# Now import your handler, which needs those variables
+# Load env before importing/using other modules that depend on them
+load_dotenv()
+
+# Import handler after env loaded
 from handler import handle_build_request
 
-
-
 app = Flask(__name__)
+
+REQUIRED_FIELDS = ("email", "secret", "task", "round", "nonce", "brief", "evaluation_url")
 
 @app.route('/api-endpoint', methods=['GET', 'POST'])
 def api_endpoint():
@@ -23,25 +25,40 @@ def api_endpoint():
         }), 200
 
     # --- POST request (main task) ---
-    print("Received a new task request.")
-    data = request.get_json()
+    # quick content-type check
+    if not request.is_json:
+        return jsonify({"error": "Expected application/json payload"}), 400
 
-    # 1. Secret Verification (CRITICAL CHECK)
-    if not data or data.get('secret') != os.getenv('MY_SECRET'):
-        print("Error: Invalid or missing secret.")
+    data = request.get_json(silent=True) or {}
+
+    # validate required fields
+    missing = [f for f in REQUIRED_FIELDS if f not in data]
+    if missing:
+        return jsonify({"error": "Missing required fields", "missing": missing}), 400
+
+    # Secret Verification (CRITICAL CHECK)
+    expected = os.getenv('MY_SECRET')
+    if not expected:
+        # defensive: don't reveal secret value
+        app.logger.warning("MY_SECRET not set in environment.")
+        return jsonify({"error": "Server misconfiguration"}), 500
+
+    if data.get('secret') != expected:
+        app.logger.warning("Invalid secret attempt for task: %s", data.get('task'))
         return jsonify({"error": "Invalid secret."}), 403
 
-    # 2. Respond 200 OK Immediately (process async)
+    # Start background processing (daemon so it won't block shutdown)
     try:
         thread = threading.Thread(target=handle_build_request, args=(data,))
+        thread.daemon = True
         thread.start()
-        print(f"Task processing started in background for: {data.get('task')}")
+
+        app.logger.info("Task processing started in background for: %s", data.get('task'))
         return jsonify({"message": "Request received and is being processed."}), 200
     except Exception as e:
-        print(f"Error starting background thread: {e}")
+        app.logger.exception("Error starting background thread")
         return jsonify({"error": "Failed to start processing."}), 500
 
-# This part lets you run the server locally for testing
+
 if __name__ == '__main__':
-    # Hugging Face Spaces uses port 7860 by default
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 7860)))
