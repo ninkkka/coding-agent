@@ -21,8 +21,10 @@ def api_endpoint():
         return jsonify({
             "status": "ok",
             "message": "LLM Code Deployment API is live and ready.",
-            "usage": "Send a POST request with JSON payload (email, secret, task, round, nonce, brief, evaluation_url)."
+            "endpoint": "/api-endpoint",
+            "usage": "Send a POST request with JSON payload containing: email, secret, task, round, nonce, brief, evaluation_url"
         }), 200
+
 
     # --- POST request (main task) ---
     # quick content-type check
