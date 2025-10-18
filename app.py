@@ -12,8 +12,17 @@ from handler import handle_build_request
 
 app = Flask(__name__)
 
-@app.route('/api-endpoint', methods=['POST'])
+@app.route('/api-endpoint', methods=['GET', 'POST'])
 def api_endpoint():
+    # --- GET request (status check) ---
+    if request.method == 'GET':
+        return jsonify({
+            "status": "ok",
+            "message": "LLM Code Deployment API is live and ready.",
+            "usage": "Send a POST request with JSON payload (email, secret, task, round, nonce, brief, evaluation_url)."
+        }), 200
+
+    # --- POST request (main task) ---
     print("Received a new task request.")
     data = request.get_json()
 
@@ -22,12 +31,10 @@ def api_endpoint():
         print("Error: Invalid or missing secret.")
         return jsonify({"error": "Invalid secret."}), 403
 
-    # 2. Respond 200 OK Immediately
-    # Start the heavy lifting in a separate thread so the server can respond instantly.
+    # 2. Respond 200 OK Immediately (process async)
     try:
         thread = threading.Thread(target=handle_build_request, args=(data,))
         thread.start()
-        
         print(f"Task processing started in background for: {data.get('task')}")
         return jsonify({"message": "Request received and is being processed."}), 200
     except Exception as e:
