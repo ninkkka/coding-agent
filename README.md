@@ -1,51 +1,85 @@
-  "brief": "detailed-task-brief",
-  "evaluation_url": "url-for-evaluation"
+# LLM Code Deployment Bot 🤖
+
+Automate LLM-based web app creation, repository setup, and deployment using Gemini, Flask, and PyGithub.
+
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Usage](#usage)
+- [API Endpoint](#api-endpoint)
+- [Dependencies](#dependencies)
+- [Environment Variables](#environment-variables)
+- [License](#license)
+
+## 🚀 Overview
+LLM Code Deployment Bot receives structured deployment requests, generates code via Gemini (Google LLM), and deploys to GitHub and GitHub Pages in a single workflow.
+
+## ✨ Features
+- End-to-end deployment via POST request
+- Secure authentication using student secret
+- Gemini LLM-powered auto code generation
+- Automated GitHub repository & Pages deployment
+- Multi-round task evaluation (supports improvements and updates)
+
+## 🛠️ Usage
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/23f3004176/LLM-Code-Deployment.git
+   cd LLM-Code-Deployment
+   ```
+2. **Install Requirements:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Start the Server:**
+   ```bash
+   python app.py
+   ```
+
+## 🔗 API Endpoint
+
+**POST** `https://23f3004176-tds.hf.space/api-endpoint`
+
+Payload example:
+```json
+{
+  "email": "your-email@example.com",
+  "secret": "your-student-secret",
+  "task": "your-task-name",
+  "round": 1,
+  "nonce": "unique-nonce",
+  "brief": "Your task description goes here.",
+  "evaluation_url": "your-evaluator-endpoint"
 }
 ```
-**Example using curl**:
-```bash
-curl -X POST https://23f3004176-tds.hf.space/api-endpoint \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "your-email@example.com",
-    "secret": "your-secret-key",
-    "task": "task-description",
-    "round": "round-number",
-    "nonce": "unique-nonce",
-    "brief": "detailed-task-brief",
-    "evaluation_url": "url-for-evaluation"
-  }'
-```
-**Example using Python**:
+
+Example request (Python):
 ```python
 import requests
-
 url = "https://23f3004176-tds.hf.space/api-endpoint"
 data = {
-    "email": "your-email@example.com",
-    "secret": "your-secret-key",
-    "task": "task-description",
-    "round": "round-number",
-    "nonce": "unique-nonce",
-    "brief": "detailed-task-brief",
-    "evaluation_url": "url-for-evaluation"
+    "email": "...",
+    "secret": "...",
+    "task": "...",
+    "round": 1,
+    "nonce": "...",
+    "brief": "...",
+    "evaluation_url": "..."
 }
-
 response = requests.post(url, json=data)
 print(response.json())
 ```
 
-## Dependencies
-- Flask - Web framework
-- google-generativeai - Gemini LLM integration
-- PyGithub - GitHub API client
-- requests - HTTP library
+## 📚 Dependencies
+- Flask
+- google-generativeai
+- PyGithub
+- requests
 
-## Environment Variables
-The following environment variables are required:
-- `GITHUB_TOKEN` - GitHub personal access token
-- `STUDENT_SECRET` - Student secret key
-- `GEMINI_API_KEY` - Google Gemini API key
+## ⚙️ Environment Variables
+- `GITHUB_TOKEN` — GitHub personal access token
+- `GEMINI_API_KEY` — Gemini API key
+- `STUDENT_SECRET` — Your assigned secret key
 
-## License
+## 📝 License
 MIT License
