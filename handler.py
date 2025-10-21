@@ -30,7 +30,7 @@ def handle_build_request(request_body):
         existing_code = None
         # --- LOGIC FOR ROUND 2 ---
         # If it's Round 2 or later, try to fetch the previous code.
-        if task_details['round'] > 1:
+        if int(task_details['round']) > 1:
             try:
                 repo = github_user.get_repo(task_details['task'])
                 content_file = repo.get_contents("index.html")
