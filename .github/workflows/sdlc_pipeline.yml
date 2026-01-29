@@ -1,0 +1,67 @@
+name: SDLC Pipeline
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  code-agent:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Run Coding Agent
+        env:
+          GITHUB_PAT: ${{ secrets.GH_PAT }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_KEY }}
+        run: python coding_agent.py --issue ${{ github.event.issue.number }} --repo ${{ github.repository }}
+
+  reviewer-agent:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: pip install PyGithub requests
+        
+      - name: Get Issue body
+        id: get_issue
+        run: |
+          # Упрощённо: берём Issue из контекста PR
+          echo "ISSUE_BODY=Automated PR for testing" >> $GITHUB_OUTPUT
+          
+      - name: Run AI Reviewer Agent
+        env:
+          GITHUB_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          python -c "
+          import sys
+          sys.path.append('.')
+          from core.reviewer_agent import analyze_pull_request, post_review_to_pr
+          
+          repo = '${{ github.repository }}'
+          pr_num = ${{ github.event.pull_request.number }}
+          issue_body = '${{ steps.get_issue.outputs.ISSUE_BODY }}'
+          
+          review = analyze_pull_request(repo, pr_num, issue_body)
+          post_review_to_pr(repo, pr_num, review)
+          "
