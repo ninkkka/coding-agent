@@ -4,11 +4,19 @@ services:
   coding-agent:
     build: .
     environment:
-      - GITHUB_PAT=${GITHUB_PAT}
+      - GH_PAT=${GH_PAT}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
     volumes:
       - .:/app
-    command: >
-      sh -c "echo 'Coding Agent System ready' &&
-             echo 'Run locally: python src/agents/coding_agent.py --issue 1 --repo owner/repo' &&
-             tail -f /dev/null"
+    working_dir: /app
+    command: tail -f /dev/null
+    
+  test-run:
+    build: .
+    environment:
+      - GH_PAT=${GH_PAT}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: python coding_agent.py --issue 1 --repo ${GITHUB_REPO} --test
