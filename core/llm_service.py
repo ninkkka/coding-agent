@@ -3,8 +3,7 @@ import os
 import json
 import requests
 import time
-from typing import Dict, List, Optional
-from openai import OpenAI
+from typing import Dict, List
 
 # Поддерживаем все варианты имен переменных
 deepseek_key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_KEY")
@@ -16,11 +15,14 @@ DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 MODEL_NAME = "deepseek-chat"
 CODING_MODEL = "deepseek-coder"
 
-# Инициализируем клиент OpenAI
-deepseek_client = OpenAI(
-    api_key=deepseek_key,
-    base_url="https://api.deepseek.com"
-)
+# Для совместимости со старой версией OpenAI
+try:
+    import openai
+    openai.api_key = deepseek_key
+    openai.api_base = "https://api.deepseek.com"
+    print("[llm] Использую старую версию OpenAI client")
+except ImportError:
+    print("[llm] OpenAI не установлен")
 
 
 def analyze_issue_with_llm(issue_title: str, issue_body: str, repo_files: List[str] = None) -> Dict:
@@ -65,20 +67,31 @@ def analyze_issue_with_llm(issue_title: str, issue_body: str, repo_files: List[s
     """
     
     try:
-        # Используем OpenAI SDK
-        response = deepseek_client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
+        # Используем прямые запросы requests вместо OpenAI SDK
+        headers = {
+            "Authorization": f"Bearer {deepseek_key}",
+            "Content-Type": "application/json",
+        }
+        
+        payload = {
+            "model": MODEL_NAME,
+            "messages": [
                 {"role": "system", "content": "Ты - архитектор ПО. Анализируй задачи и предлагай точные технические решения."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
-            response_format={"type": "json_object"}
-        )
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"}
+        }
         
-        result = json.loads(response.choices[0].message.content)
-        print(f"[llm] Анализ завершен. Сложность: {result.get('estimated_complexity', 'unknown')}")
-        return result
+        response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        
+        result = response.json()
+        llm_output = result["choices"][0]["message"]["content"]
+        
+        analysis = json.loads(llm_output)
+        print(f"[llm] Анализ завершен. Сложность: {analysis.get('estimated_complexity', 'unknown')}")
+        return analysis
         
     except Exception as e:
         print(f"[llm] Ошибка анализа: {e}")

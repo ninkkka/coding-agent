@@ -6,26 +6,23 @@ import os
 import sys
 import json
 import argparse
+import requests
 from github import Github
-from openai import OpenAI
 
 # Поддерживаем все варианты имен переменных
 GITHUB_TOKEN = os.getenv("GH_PAT") or os.getenv("GITHUB_PAT") or os.getenv("GITHUB_TOKEN")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_KEY")
+DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_KEY")
 
 if not GITHUB_TOKEN:
     print("❌ GitHub token not found")
     sys.exit(1)
 
-if not DEEPSEEK_API_KEY:
+if not DEEPSEEK_KEY:
     print("❌ DeepSeek API key not found")
     sys.exit(1)
 
 github_client = Github(GITHUB_TOKEN)
-deepseek_client = OpenAI(
-    api_key=DEEPSEEK_API_KEY,
-    base_url="https://api.deepseek.com"
-)
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
 
 def analyze_pull_request(repo_full_name: str, pr_number: int) -> dict:
@@ -51,7 +48,6 @@ def analyze_pull_request(repo_full_name: str, pr_number: int) -> dict:
         # Получаем связанный Issue
         issue_body = "Не удалось получить описание Issue"
         try:
-            # Ищем ссылку на Issue в описании PR
             if pr.body and "#" in pr.body:
                 import re
                 issue_match = re.search(r'#(\d+)', pr.body)
@@ -77,13 +73,18 @@ def analyze_pull_request(repo_full_name: str, pr_number: int) -> dict:
         ИЗМЕНЕННЫЕ ФАЙЛЫ:
         """
         
-        for file in files_changed[:10]:  # Ограничиваем количество файлов
+        for file in files_changed[:10]:
             context += f"\n- {file['filename']} (+{file['additions']}/-{file['deletions']})"
         
-        # Анализ с помощью AI
-        response = deepseek_client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
+        # Анализ с помощью AI через requests
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_KEY}",
+            "Content-Type": "application/json",
+        }
+        
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
                 {"role": "system", "content": """Ты — опытный код-ревьюер. Проверяй код на:
                 1. Соответствие требованиям Issue
                 2. Качество кода (стиль, структура, best practices)
@@ -93,11 +94,16 @@ def analyze_pull_request(repo_full_name: str, pr_number: int) -> dict:
                 Отвечай на русском в JSON формате."""},
                 {"role": "user", "content": f"Проверь этот Pull Request:\n\n{context}"}
             ],
-            temperature=0.1,
-            response_format={"type": "json_object"}
-        )
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"}
+        }
         
-        analysis = json.loads(response.choices[0].message.content)
+        response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        
+        result = response.json()
+        llm_output = result["choices"][0]["message"]["content"]
+        analysis = json.loads(llm_output)
         
         # Определяем вердикт
         issues = analysis.get("issues_found", [])
