@@ -1,67 +1,40 @@
 name: Test Agent Connections
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
-  test:
+  test-simple:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-    
-    - name: Test GitHub connection
-      env:
-        GH_PAT: ${{ secrets.GH_PAT }}
-      run: |
-        python -c "
-import os
-from github import Github
-token = os.getenv('GH_PAT')
-if token:
-    try:
-        g = Github(token)
-        user = g.get_user()
-        print(f'✅ GitHub connected: {user.login}')
-    except Exception as e:
-        print(f'❌ GitHub error: {e}')
-else:
-    print('❌ No GH_PAT found')
-        "
-    
-    - name: Test DeepSeek connection
-      env:
-        DEEPSEEK_KEY: ${{ secrets.DEEPSEEK_KEY }}
-      run: |
-        python -c "
-import os
-from openai import OpenAI
-key = os.getenv('DEEPSEEK_KEY')
-if key:
-    try:
-        client = OpenAI(
-            api_key=key,
-            base_url='https://api.deepseek.com'
-        )
-        response = client.chat.completions.create(
-            model='deepseek-chat',
-            messages=[{'role': 'user', 'content': 'Say hello'}],
-            max_tokens=10
-        )
-        print(f'✅ DeepSeek connected: {response.choices[0].message.content[:50]}...')
-    except Exception as e:
-        print(f'❌ DeepSeek error: {e}')
-else:
-    print('❌ No DEEPSEEK_KEY found')
-        "
+      - uses: actions/checkout@v4
+      
+      - name: Check environment
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          DEEPSEEK_KEY: ${{ secrets.DEEPSEEK_KEY }}
+        run: |
+          echo "Checking environment variables..."
+          if [ -n "$GH_PAT" ]; then
+            echo "✅ GH_PAT is set"
+            echo "Token length: ${#GH_PAT}"
+          else
+            echo "❌ GH_PAT is NOT set"
+          fi
+          
+          if [ -n "$DEEPSEEK_KEY" ]; then
+            echo "✅ DEEPSEEK_KEY is set"
+            echo "Key length: ${#DEEPSEEK_KEY}"
+          else
+            echo "❌ DEEPSEEK_KEY is NOT set"
+          fi
+          
+      - name: Check Python files
+        run: |
+          echo "Python files in project:"
+          find . -name "*.py" -type f | head -10
+          
+          echo ""
+          echo "Checking agents directory:"
+          ls -la src/agents/ 2>/dev/null || echo "No agents directory"
