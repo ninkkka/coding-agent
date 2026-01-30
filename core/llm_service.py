@@ -10,19 +10,12 @@ deepseek_key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_KEY")
 if not deepseek_key:
     raise ValueError("❌ DeepSeek API key not found. Set DEEPSEEK_API_KEY or DEEPSEEK_KEY")
 
-# URL для прямых запросов
+# URL для запросов
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 MODEL_NAME = "deepseek-chat"
 CODING_MODEL = "deepseek-coder"
 
-# Для совместимости со старой версией OpenAI
-try:
-    import openai
-    openai.api_key = deepseek_key
-    openai.api_base = "https://api.deepseek.com"
-    print("[llm] Использую старую версию OpenAI client")
-except ImportError:
-    print("[llm] OpenAI не установлен")
+print(f"[llm] DeepSeek ключ загружен: {'*' * 8}{deepseek_key[-4:] if len(deepseek_key) > 8 else ''}")
 
 
 def analyze_issue_with_llm(issue_title: str, issue_body: str, repo_files: List[str] = None) -> Dict:
@@ -67,7 +60,6 @@ def analyze_issue_with_llm(issue_title: str, issue_body: str, repo_files: List[s
     """
     
     try:
-        # Используем прямые запросы requests вместо OpenAI SDK
         headers = {
             "Authorization": f"Bearer {deepseek_key}",
             "Content-Type": "application/json",
@@ -83,6 +75,7 @@ def analyze_issue_with_llm(issue_title: str, issue_body: str, repo_files: List[s
             "response_format": {"type": "json_object"}
         }
         
+        print(f"[llm] Отправляю запрос к DeepSeek...")
         response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=60)
         response.raise_for_status()
         
