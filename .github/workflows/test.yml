@@ -1,40 +1,56 @@
-name: Test Agent Connections
+name: Test Connections
 
-on:
-  workflow_dispatch:
+on: [workflow_dispatch]
 
 jobs:
-  test-simple:
+  test:
     runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v4
       
-      - name: Check environment
+      - name: Test Environment Variables
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-          DEEPSEEK_KEY: ${{ secrets.DEEPSEEK_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
-          echo "Checking environment variables..."
+          echo "=== Testing Environment ==="
+          echo "GH_PAT length: ${#GH_PAT}"
+          echo "DEEPSEEK_API_KEY length: ${#DEEPSEEK_API_KEY}"
+          
           if [ -n "$GH_PAT" ]; then
             echo "✅ GH_PAT is set"
-            echo "Token length: ${#GH_PAT}"
           else
             echo "❌ GH_PAT is NOT set"
           fi
           
-          if [ -n "$DEEPSEEK_KEY" ]; then
-            echo "✅ DEEPSEEK_KEY is set"
-            echo "Key length: ${#DEEPSEEK_KEY}"
+          if [ -n "$DEEPSEEK_API_KEY" ]; then
+            echo "✅ DEEPSEEK_API_KEY is set"
           else
-            echo "❌ DEEPSEEK_KEY is NOT set"
+            echo "❌ DEEPSEEK_API_KEY is NOT set"
           fi
-          
-      - name: Check Python files
+      
+      - name: List Python files
         run: |
-          echo "Python files in project:"
-          find . -name "*.py" -type f | head -10
-          
+          echo "=== Project Structure ==="
+          find . -name "*.py" -type f | head -20
           echo ""
-          echo "Checking agents directory:"
-          ls -la src/agents/ 2>/dev/null || echo "No agents directory"
+          echo "=== Core files ==="
+          ls -la core/
+          
+      - name: Test Python imports
+        run: |
+          echo "=== Testing Python imports ==="
+          python -c "
+          try:
+              from core.github_client import test_github_connection
+              print('✅ github_client imports OK')
+          except Exception as e:
+              print(f'❌ github_client import error: {e}')
+          
+          try:
+              from core.llm_service import get_llm_token_info
+              print('✅ llm_service imports OK')
+          except Exception as e:
+              print(f'❌ llm_service import error: {e}')
+          "

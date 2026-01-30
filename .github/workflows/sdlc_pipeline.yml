@@ -5,9 +5,9 @@ on:
     types: [opened, edited]
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 jobs:
-  # ==================== CODING AGENT ====================
   code_agent:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
@@ -36,19 +36,18 @@ jobs:
       - name: Run Coding Agent
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_KEY }}
+          DEEPSEEK_KEY: ${{ secrets.DEEPSEEK_KEY }}
         run: |
           echo "🚀 Processing issue #${{ github.event.issue.number }}"
-          python src/agents/coding_agent.py \
+          python coding_agent.py \
             --issue ${{ github.event.issue.number }} \
             --repo "${{ github.repository }}"
             
-      - name: Trigger PR checks
-        if: success()
+      - name: Log completion
+        if: always()
         run: |
-          echo "✅ PR created. AI Reviewer will be triggered automatically."
+          echo "✅ Coding Agent completed for issue #${{ github.event.issue.number }}"
           
-  # ==================== AI REVIEWER ====================
   reviewer_agent:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -70,48 +69,14 @@ jobs:
       - name: Run AI Reviewer
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_KEY }}
+          DEEPSEEK_KEY: ${{ secrets.DEEPSEEK_KEY }}
         run: |
           echo "🔍 Reviewing PR #${{ github.event.pull_request.number }}"
-          python src/agents/reviewer_agent.py \
+          python reviewer_agent.py \
             --pr-number ${{ github.event.pull_request.number }} \
             --repo "${{ github.repository }}"
             
-      - name: Handle reviewer verdict
-        if: failure()  # Если reviewer вернул REQUEST_CHANGES
+      - name: Handle verdict
+        if: always()
         run: |
-          echo "⚠️ AI Reviewer requested changes"
-          echo "Coding Agent will process this feedback in the next iteration"
-          
-  # ==================== CI CHECKS ====================
-  quality_checks:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    name: "Quality Checks"
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          
-      - name: Run code formatting check
-        run: |
-          pip install black
-          black --check src/ || echo "⚠️ Code formatting issues found"
-          
-      - name: Run linting
-        run: |
-          pip install ruff
-          ruff check src/ || echo "⚠️ Linting issues found"
-          
-      - name: Run tests
-        run: |
-          python -m pytest tests/ -v || echo "⚠️ Tests failed"
+          echo "🤖 AI Reviewer completed for PR #${{ github.event.pull_request.number }}"

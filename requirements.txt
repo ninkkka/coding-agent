@@ -1,6 +1,4 @@
-Flask
-requests
-PyGithub
-python-dotenv
-gunicorn
-google-generativeai
+PyGithub==2.1.1
+openai==1.12.0
+python-dotenv==1.0.0
+requests==2.31.0
