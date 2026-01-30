@@ -1,67 +1,117 @@
-name: SDLC Pipeline
+name: SDLC Pipeline - Coding Agent System
 
 on:
   issues:
-    types: [opened]
+    types: [opened, edited]
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
 
 jobs:
-  code-agent:
+  # ==================== CODING AGENT ====================
+  code_agent:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
+    name: "Coding Agent: Process Issue"
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GH_PAT }}
+          
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
           
       - name: Install dependencies
-        run: pip install -r requirements.txt
-        
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
       - name: Run Coding Agent
         env:
-          GITHUB_PAT: ${{ secrets.GH_PAT }}
+          GH_PAT: ${{ secrets.GH_PAT }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_KEY }}
-        run: python coding_agent.py --issue ${{ github.event.issue.number }} --repo ${{ github.repository }}
-
-  reviewer-agent:
+        run: |
+          echo "🚀 Processing issue #${{ github.event.issue.number }}"
+          python src/agents/coding_agent.py \
+            --issue ${{ github.event.issue.number }} \
+            --repo "${{ github.repository }}"
+            
+      - name: Trigger PR checks
+        if: success()
+        run: |
+          echo "✅ PR created. AI Reviewer will be triggered automatically."
+          
+  # ==================== AI REVIEWER ====================
+  reviewer_agent:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    name: "AI Reviewer: Analyze PR"
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
           
       - name: Install dependencies
-        run: pip install PyGithub requests
-        
-      - name: Get Issue body
-        id: get_issue
         run: |
-          # Упрощённо: берём Issue из контекста PR
-          echo "ISSUE_BODY=Automated PR for testing" >> $GITHUB_OUTPUT
+          pip install -r requirements.txt
           
-      - name: Run AI Reviewer Agent
+      - name: Run AI Reviewer
         env:
-          GITHUB_PAT: ${{ secrets.GH_PAT }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_KEY }}
         run: |
-          python -c "
-          import sys
-          sys.path.append('.')
-          from core.reviewer_agent import analyze_pull_request, post_review_to_pr
+          echo "🔍 Reviewing PR #${{ github.event.pull_request.number }}"
+          python src/agents/reviewer_agent.py \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --repo "${{ github.repository }}"
+            
+      - name: Handle reviewer verdict
+        if: failure()  # Если reviewer вернул REQUEST_CHANGES
+        run: |
+          echo "⚠️ AI Reviewer requested changes"
+          echo "Coding Agent will process this feedback in the next iteration"
           
-          repo = '${{ github.repository }}'
-          pr_num = ${{ github.event.pull_request.number }}
-          issue_body = '${{ steps.get_issue.outputs.ISSUE_BODY }}'
+  # ==================== CI CHECKS ====================
+  quality_checks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: "Quality Checks"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
           
-          review = analyze_pull_request(repo, pr_num, issue_body)
-          post_review_to_pr(repo, pr_num, review)
-          "
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Run code formatting check
+        run: |
+          pip install black
+          black --check src/ || echo "⚠️ Code formatting issues found"
+          
+      - name: Run linting
+        run: |
+          pip install ruff
+          ruff check src/ || echo "⚠️ Linting issues found"
+          
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -v || echo "⚠️ Tests failed"

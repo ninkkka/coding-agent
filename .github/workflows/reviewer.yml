@@ -1,0 +1,37 @@
+name: AI Reviewer Agent
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Run AI Reviewer Agent
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_KEY }}
+        run: |
+          python src/agents/reviewer_agent.py \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --repo "${{ github.repository }}"
+            
+      - name: Log result
+        if: always()
+        run: |
+          echo "🎉 AI Reviewer completed for PR #${{ github.event.pull_request.number }}"
